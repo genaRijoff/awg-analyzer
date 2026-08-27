@@ -19,6 +19,21 @@
 
 ---
 
+Что нового в v3.1
+
+- ✅ **Поддержка AWG 3.1** — детект по `RandomTrailers` / `DisableCookies`, отдельный бейдж и цвет
+- ✅ Разбор **всех параметров 3.x уровня устройства**: `HeaderProtectionKey`, `ContentPaddingAddition`, `RekeyAfterTime`, `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout`, `MaxHandshakeAttempts`, `RandomTrailers`, `DisableCookies` — формат («N» или «LO-HI», оба конца uint16), допустимость значений и смысл каждого
+- ✅ Проверка `parse_bool`: `RandomTrailers`/`DisableCookies` принимают **только `on`/`off` и десятичное число** — на `true` импорт конфига в amneziawg-tools падает целиком
+- ✅ Инвариант таймеров **`RekeyAfterTime` < `RejectAfterTime`** — иначе сессию отвергает раньше, чем она успевает сменить ключи, и туннель периодически встаёт
+- 🔧 **Убрано ложное срабатывание на H1-H4 для 3.x**: при `HeaderProtectionKey` заголовок шифруется целиком вместе с типом пакета, поэтому `H1=1 H2=2 H3=3 H4=4` там **норма, а не сигнатура** — ровно так их оставляют официальный клиент Amnezia на 3.1 и генератор `awg2.sh` v0.7.27. Раньше анализатор выдавал на них CRIT и предлагал диапазоны, которые на 3.x — чистая цена (замер: 10 Мбит/с против 100+) без выигрыша в маскировке
+- ✅ Версию 3.x поднимает **любой** ключ из набора 3.x, а не только `HeaderProtectionKey`: такой конфиг старый клиент не прочитает в принципе
+- ✅ Детект «ключи 3.x есть, а `HeaderProtectionKey` нет» — заголовки не шифруются, обычно ключ выбросил импортёр клиента
+- ✅ Проверка **запаса до 1500 байт** на 3.x: `MTU + 32 (WG) + S4 + ContentPaddingAddition + 28 (IP/UDP)`, плюс невидимый в конфиге хвост `RandomTrailers`
+- ✅ Все **три** совпадения длин пакетов рукопожатия, а не одно: `S2 = S1+56` (Init/Response), `S3 = S1+84` (Init/Cookie), `S3 = S2+28` (Response/Cookie)
+- ✅ Лимит `S2` на 3.x — общий `S_MAX = 1132` вместо 1188
+- ✅ Актуальные требования к клиенту: 3.0 — amneziawg-tools v3.0.20260730+ и модуль v3.0.20260805+; 3.1 — v3.1.20260812+ на обеих сторонах; в приложении AmneziaVPN поддержка 3.1 с 5.0.1.5, прошивки роутеров её пока не умеют
+- ✅ Апгрейд-путь 2.0 → 3.1 и 3.0 → 3.1 с готовыми командами
+
 Что нового в v3
 
 - ✅ **Поддержка AWG 3.0** — детект по `HeaderProtectionKey`, отдельный бейдж и цвет
@@ -54,13 +69,15 @@
   - AWG 1.5
   - AWG 2.0 (+ детект уровня обфускации)
   - AWG 3.0 (full CPS chain + HeaderProtection)
+  - AWG 3.1 (+ RandomTrailers / DisableCookies)
   - 🧠 Анализ параметров
   
   - Junk packets ("Jc", "Jmin", "Jmax")
   - Handshake padding ("S1–S4")
   - Magic headers ("H1–H4") — в т.ч. диапазоны по квадрантам
   - CPS mimicry ("I1–I5") — разбор каждого тега
-  - Endpoint, MTU, DNS, AllowedIPs, Keepalive
+  - Параметры 3.x уровня устройства (HeaderProtectionKey, ContentPaddingAddition, таймеры, RandomTrailers, DisableCookies)
+  - Endpoint, MTU, DNS, AllowedIPs, Keepalive (в т.ч. диапазон на 3.x)
 
 - 🧬 Глубокий разбор CPS
   
