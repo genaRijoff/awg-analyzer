@@ -15,7 +15,7 @@
 
 🌐 Онлайн-тест
 
-👉  [Открыть AmneziaWG Analyzer](https://pumbax.github.io/awg-analyzer/)
+👉  [Открыть AmneziaWG Analyzer](https://genarijoff.github.io/awg-analyzer/)
 
 ---
 
