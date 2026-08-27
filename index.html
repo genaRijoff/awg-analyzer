@@ -1235,18 +1235,18 @@ function runChecks(iface, peer, version) {
     // Критичные проверки I1
     if (i1StructErr) {
       push('CPS Мимикрия (I1-I5)', '🔴 I1 структура', 'fail', `первый тег: <${i1Parsed.firstTag}>`,
-        'I1 должен начинаться с <b 0x...> или с <r N><b 0x...> — иначе парсер amneziawg-go на клиенте ломает handshake.',
+        'I1 должен начинаться с &lt;b 0x...&gt; или с &lt;r N&gt;&lt;b 0x...&gt; — иначе парсер amneziawg-go на клиенте ломает handshake.',
         0, 15);
     } else if (i1RPrefixOk) {
       const protoLabel = i1Parsed.protocol && i1Parsed.protocol !== 'Custom' && i1Parsed.protocol !== 'Unknown'
         ? i1Parsed.protocol : 'сигнатурный пакет';
       push('CPS Мимикрия (I1-I5)', 'I1 — Protocol Signature', 'pass',
         I1.slice(0, 50) + (I1.length > 50 ? '…' : ''),
-        `<r ${i1Parsed.rTagSizes[0]}> + <b 0x...> — ${protoLabel} с рандомизацией первых ${i1Parsed.rTagSizes[0]} байт (например TXID для DNS). Структура корректна. ✓`,
+        `&lt;r ${i1Parsed.rTagSizes[0]}&gt; + &lt;b 0x...&gt; — ${protoLabel} с рандомизацией первых ${i1Parsed.rTagSizes[0]} байт (например TXID для DNS). Структура корректна. ✓`,
         15, 15);
     } else if (i1Parsed.hasC) {
       push('CPS Мимикрия (I1-I5)', '⚠️ Устаревший тег <c>', 'fail', 'обнаружен',
-        'Тег <c> вызывает ErrorCode 1000 на старых клиентах AmneziaVPN. Убери его.',
+        'Тег &lt;c&gt; вызывает ErrorCode 1000 на старых клиентах AmneziaVPN. Убери его.',
         5, 15);
     } else if (i1Parsed.maxRSize > 1000) {
       push('CPS Мимикрия (I1-I5)', '⚠️ Большой тег', 'warn',
@@ -1255,7 +1255,7 @@ function runChecks(iface, peer, version) {
         10, 15);
     } else if (i1Parsed.hasDeprecatedD) {
       push('CPS Мимикрия (I1-I5)', '⚠️ Тег <d>/<ds>/<dz>', 'warn', 'обнаружен',
-        'В текущей amneziawg-go 3.0.1 эти теги парсятся, но не подключены к отправке пакетов — задел под AWG 4.0. Используй <r>/<rc>/<rd>.',
+        'В текущей amneziawg-go 3.0.1 эти теги парсятся, но не подключены к отправке пакетов — задел под AWG 4.0. Используй &lt;r&gt;/&lt;rc&gt;/&lt;rd&gt;.',
         8, 15);
     } else if (!i1Parsed.firstByteOk && i1Parsed.protocol !== 'Unknown' && i1Parsed.protocol !== 'Custom') {
       push('CPS Мимикрия (I1-I5)', '⚠️ Первый байт I1', 'warn',
@@ -1265,7 +1265,7 @@ function runChecks(iface, peer, version) {
     } else {
       push('CPS Мимикрия (I1-I5)', 'I1 — Protocol Signature', 'pass',
         I1.slice(0, 40) + (I1.length > 40 ? '…' : ''),
-        `I1 валидный, начинается с <b 0x...>, max <r>=${i1Parsed.maxRSize}. Трафик имитирует реальный протокол.`,
+        `I1 валидный, начинается с &lt;b 0x...&gt;${i1Parsed.maxRSize ? `, самый большой тег-заполнитель — ${i1Parsed.maxRSize} байт` : ' и состоит из одного снимка протокола: теги-заполнители &lt;r&gt;/&lt;rc&gt;/&lt;rd&gt; не используются'}. Трафик имитирует реальный протокол.`,
         15, 15);
     }
 
@@ -1398,7 +1398,7 @@ function runChecks(iface, peer, version) {
     if (kaRange && kaRange.isRange) {
       const kaOk = kaRange.start >= 15 && kaRange.end <= 60 && kaRange.start < kaRange.end;
       push('Сеть', 'PersistentKeepalive', kaOk ? 'pass' : 'warn', kaRange.raw,
-        kaOk ? `${kaRange.raw}s — диапазон AWG 3.0, клиент берёт случайное значение каждый раз ✓` :
+        kaOk ? `${kaRange.raw}s — диапазон AWG 3.x, значение выбирается заново на каждой отправке (u16_range_pick_one в timers.c), поэтому keepalive не даёт ровной временной сигнатуры ✓` :
           `${kaRange.raw}s — диапазон вне рекомендуемых 15-60`,
         kaOk ? 3 : 1, 3);
     } else {
@@ -1923,7 +1923,7 @@ function analyze() {
         <div class="check-item ${c.status}">
           <div class="check-icon">${icons[c.status] || 'i'}</div>
           <div class="check-body">
-            <div class="check-title">${c.title}</div>
+            <div class="check-title">${esc(c.title)}</div>
             <div class="check-value">${esc(c.value)}</div>
             <div class="check-detail">${c.detail}</div>
           </div>
