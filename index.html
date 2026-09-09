@@ -1673,7 +1673,7 @@ function buildUpgradePath(iface, version) {
     steps.push({
       title: `Шаг ${steps.length + 1}: Обнови до AWG 3.1`,
       text: 'AWG 3.x шифрует заголовок WireGuard-пакета целиком отдельным симметричным ключом (HeaderProtectionKey), рандомизирует паддинг содержимого и тайминги рукопожатий, а 3.1 добавляет к этому RandomTrailers и DisableCookies. Бонусом снимается плата за диапазоны H1-H4: под шифрованием заголовка они не нужны, ставятся штатные 1/2/3/4 — и скорость возвращается. S1-S4 при этом обязаны быть ≥12: в этот паддинг прячется nonce защиты заголовков. Версия задаётся на весь сервер сразу — клиенты на 2.0 к серверу 3.x не подключатся.',
-      cmd: '# В [Interface] сервера и всех клиентов:\nHeaderProtectionKey = <base64-ключ, awg genkey>\nContentPaddingAddition = 16-64\nRekeyAfterTime = 115-150\nRekeyTimeout = 5\nRejectAfterTime = 175-210\nKeepaliveTimeout = 10-28\nMaxHandshakeAttempts = 18\nRandomTrailers = on\nDisableCookies = on\n# S1-S4 поднять минимум до 12:\nS1 = 40\nS2 = 96\nS3 = 20\nS4 = 20\n\n# Через awg2-toolza (v0.7.27+):\nsudo awg2\n# Сервер (1) → п.5 → выбрать AWG 3.1',
+      cmd: '# В [Interface] сервера и всех клиентов:\nHeaderProtectionKey = <base64-ключ, awg genkey>\nContentPaddingAddition = 16-64\nRekeyAfterTime = 115-150\nRekeyTimeout = 5\nRejectAfterTime = 175-210\nKeepaliveTimeout = 10-28\nMaxHandshakeAttempts = 18\nRandomTrailers = on\nDisableCookies = on\n# S1-S4 поднять минимум до 12 (nonce header protection),\n# значения развести: S1+56 != S2, S1+84 != S3, S2+28 != S3\nS1 = 40\nS2 = 112\nS3 = 20\nS4 = 24\n\n# Через awg2-toolza (v0.7.27+):\nsudo awg2\n# Сервер (1) → п.5 → выбрать AWG 3.1',
     });
   }
 
