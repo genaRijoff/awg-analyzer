@@ -817,7 +817,7 @@ function buildSummary(iface, peer, version) {
     const on31 = Object.values(a3.flags || {}).filter(f => f.valid && f.on).map(f => f.name);
     if (on31.length) parts.push(`3.1: ${on31.map(pill).join(' ')}.`);
     parts.push(a3.is31
-      ? '📌 Нужны tools и модуль <strong>v3.1.20260812+</strong> на обеих сторонах. Клиенты: AmneziaVPN 5.0.1.5+, Keenetic 5.2.11 (alpha)+, AWG Manager.'
+      ? '📌 Нужны tools и модуль <strong>v3.1.20260812+</strong> на обеих сторонах. Клиенты: AmneziaVPN 5.0.1.5+; Keenetic — с прошивки 5.2.11 (alpha) или через AWG Manager.'
       : '📌 Нужны tools v3.0.20260730+ и модуль v3.0.20260805+ на обеих сторонах. AmneziaVPN до 5.0.0.5 теряет HeaderProtectionKey.');
     if (a3.sTooSmall) parts.push('⚠️ S1-S4 меньше 12 — защита заголовков не поднимется.');
   } else if (version.ver === 'AWG 2.0' || version.ver === 'AWG 1.5') {
@@ -991,7 +991,7 @@ function runChecks(iface, peer, version) {
     // Совместимость клиента
     push(CAT3, 'Требования к клиенту', 'info', verLabel,
       awg3p.has31
-        ? 'Ключи 3.1: tools и модуль v3.1.20260812+ на обеих сторонах, старый клиент конфиг не прочитает. Клиенты: AmneziaVPN 5.0.1.5+, Keenetic с прошивки 5.2.11 (alpha), AWG Manager.'
+        ? 'Ключи 3.1: tools и модуль v3.1.20260812+ на обеих сторонах, старый клиент конфиг не прочитает. Клиенты: AmneziaVPN 5.0.1.5+; Keenetic — с прошивки 5.2.11 (alpha) или через AWG Manager.'
         : 'Конфиг содержит ключи 3.0 — нужны amneziawg-tools v3.0.20260730+ и модуль v3.0.20260805+ на обеих сторонах. Основной AmneziaVPN до 5.0.1.5 такой конфиг импортирует без HeaderProtectionKey, и подключение молча зависает.',
       0, 0);
   }
