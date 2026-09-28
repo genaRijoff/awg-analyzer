@@ -642,7 +642,8 @@ function detectToolzaProfile(iface, i1Proto, iCount) {
 
   // Есть только I1, I2-I5 нет
   if (i1Proto === 'DNS') {
-    return { name: 'Lite', detail: 'I1=DNS', cls: 'pf-lite' };
+    // DNS-мимикрия бывает и у Lite, и у Pro L2/dns — наверняка не сказать
+    return { name: 'Lite / Pro', detail: 'I1=DNS', cls: 'pf-lite', uncertain: true };
   }
   if (i1Proto === 'QUIC') {
     return { name: 'Standard', detail: 'I1=QUIC', cls: 'pf-std', alt: 'или Pro L2/quic' };
@@ -792,92 +793,53 @@ function detectVersion(iface) {
 //  SUMMARY — что это за конфиг простым языком
 // ═══════════════════════════════════════════════════════════
 function buildSummary(iface, peer, version) {
+  // Коротко: одна мысль — одна строка.
   const parts = [];
+  const pill = t => `<span class="pill">${esc(t)}</span>`;
 
-  // Что за версия
-  parts.push(`Это конфиг <strong>${version.ver}</strong>.`);
-
-  // Профиль (Toolza Lite/Standard/Pro или AmneziaVPN) — эвристика
+  // Версия + профиль (эвристика)
+  let head = `<strong>${version.ver}</strong>`;
   if (version.toolzaProfile) {
     const tp = version.toolzaProfile;
-    const hintStyle = 'color:#64748b;font-size:.85em;';
-    const profileLabel = tp.name === 'AmneziaVPN' ? 'Источник' : 'Профиль Toolza';
-    let line = `${profileLabel}: <strong>${tp.name}</strong> <span class="pill">${tp.detail}</span>`;
-    if (tp.alt) line += ` <span style="${hintStyle}">(${tp.alt})</span>`;
-    if (tp.uncertain) line += ` <span style="${hintStyle}">(определено эвристикой)</span>`;
-    parts.push(line + '.');
+    const hint = tp.uncertain || tp.alt ? ' <span style="color:#64748b;font-size:.85em;">(по эвристике)</span>' : '';
+    head += ` · ${tp.name === 'AmneziaVPN' ? 'из' : 'профиль'} <strong>${esc(tp.name)}</strong> ${pill(tp.detail)}${hint}`;
   }
+  parts.push(head);
 
-  // Кратко по функциональности
+  // Обфускация
+  const cps = version.protocol && version.protocol !== 'Custom' ? `, CPS — <strong>${esc(version.protocol)}</strong>` : '';
   if (version.ver === 'WireGuard') {
-    parts.push('Обычный WireGuard без обфускации — все пакеты видны как WireGuard, DPI может заблокировать.');
+    parts.push('Без обфускации — DPI видит WireGuard.');
   } else if (version.ver === 'AWG 3.0' || version.ver === 'AWG 3.1') {
     const a3 = version.awg3 || {};
-    parts.push(`Уровень обфускации: <span class="pill">${version.obfLevel || 'AWG 2.0 база + HeaderProtection'}</span>.`);
-    if (version.protocol && version.protocol !== 'Custom') {
-      parts.push(`CPS имитирует <strong>${version.protocol}</strong>.`);
-    }
-    if (a3.hpk) {
-      parts.push('Заголовок WireGuard-пакета шифруется целиком, вместе с типом сообщения — поэтому <strong>H1-H4 = 1/2/3/4 здесь норма</strong>, а не сигнатура: подменять под шифром нечего. Так же их оставляет и официальный клиент Amnezia на 3.1.');
-    }
+    parts.push(`Обфускация: ${pill(version.obfLevel || 'база + HeaderProtection')}${cps}.`);
+    if (a3.hpk) parts.push('H1-H4 = 1/2/3/4 — норма: заголовок зашифрован.');
     const on31 = Object.values(a3.flags || {}).filter(f => f.valid && f.on).map(f => f.name);
-    if (on31.length) {
-      parts.push(`Включены параметры 3.1: <span class="pill">${on31.join('</span> <span class="pill">')}</span>.`);
-    }
-    if (a3.is31) {
-      parts.push('📌 Конфиг требует <strong>amneziawg-tools и модуль v3.1.20260812 или новее</strong> И на сервере, и на клиенте: более старый клиент такой конфиг даже не прочитает — неизвестный ключ отвергается целиком. В приложении AmneziaVPN поддержка 3.1 с версии <strong>5.0.1.5</strong>, прошивки роутеров её пока не умеют.');
-    } else {
-      parts.push('📌 Нужны amneziawg-tools v3.0.20260730+ и модуль v3.0.20260805+ на обеих сторонах. Приложение AmneziaVPN до 5.0.0.5 переносит Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5, но выбрасывает HeaderProtectionKey при импорте — без него подключение молча зависает.');
-    }
-    if (a3.sTooSmall) {
-      parts.push('⚠️ S1-S4 меньше 12 — см. рекомендации ниже, защита заголовков не поднимется.');
-    }
-  } else if (version.ver === 'AWG 2.0') {
-    parts.push(`Уровень обфускации: <span class="pill">${version.obfLevel}</span>.`);
-    if (version.protocol && version.protocol !== 'Custom') {
-      parts.push(`CPS имитирует <strong>${version.protocol}</strong> — трафик выглядит как реальный ${version.protocol} handshake.`);
-    }
-  } else if (version.ver === 'AWG 1.5') {
-    parts.push(`Обфускация AWG 1.5 с CPS. Имитация: <strong>${version.protocol}</strong>.`);
+    if (on31.length) parts.push(`3.1: ${on31.map(pill).join(' ')}.`);
+    parts.push(a3.is31
+      ? '📌 Нужны tools и модуль <strong>v3.1.20260812+</strong> на обеих сторонах. Клиенты: AmneziaVPN 5.0.1.5+, Keenetic 5.2.11 (alpha)+, AWG Manager.'
+      : '📌 Нужны tools v3.0.20260730+ и модуль v3.0.20260805+ на обеих сторонах. AmneziaVPN до 5.0.0.5 теряет HeaderProtectionKey.');
+    if (a3.sTooSmall) parts.push('⚠️ S1-S4 меньше 12 — защита заголовков не поднимется.');
+  } else if (version.ver === 'AWG 2.0' || version.ver === 'AWG 1.5') {
+    parts.push(`Обфускация: ${pill(version.obfLevel || version.ver)}${cps}.`);
   } else {
-    parts.push('Базовая обфускация без CPS мимикрии.');
+    parts.push('Базовая обфускация, без CPS.');
   }
 
-  // Какой у нас сервер
+  // Сервер · маршрутизация · DNS · MTU — одной строкой
+  const net = [];
   const endpoint = getStr(peer, 'endpoint');
-  if (endpoint) {
-    const epParts = endpoint.split(':');
-    const port = epParts[epParts.length - 1];
-    const host = epParts.slice(0, -1).join(':').replace(/^\[|\]$/g, '');
-    const isIP = /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(':');
-    parts.push(`Сервер: <span class="pill">${host}:${port}</span> (${isIP ? 'IP' : 'домен'}).`);
-  }
-
-  // Маршрутизация
+  if (endpoint) net.push(`сервер ${pill(endpoint)}`);
   const allowed = getStr(peer, 'allowedips');
-  const fullTunnel = allowed.includes('0.0.0.0/0');
-  const ipv6Tunnel = allowed.includes('::/0');
-  if (fullTunnel && ipv6Tunnel) {
-    parts.push('Режим: <strong>полный туннель</strong> — весь трафик (IPv4+IPv6) через VPN.');
-  } else if (fullTunnel) {
-    parts.push('Режим: <strong>IPv4 туннель</strong> — только IPv4 через VPN, <span class="pill">возможна утечка IPv6</span>.');
-  } else if (allowed) {
-    parts.push(`Режим: <strong>split-tunnel</strong> — только <span class="pill">${allowed}</span> через VPN.`);
-  }
-
-  // DNS
+  const full4 = allowed.includes('0.0.0.0/0'), full6 = allowed.includes('::/0');
+  if (full4 && full6) net.push('весь трафик через VPN');
+  else if (full4) net.push('только IPv4 через VPN (IPv6 мимо)');
+  else if (allowed) net.push('split-tunnel');
   const dns = getStr(iface, 'dns');
-  if (dns) {
-    parts.push(`DNS: <span class="pill">${dns}</span>.`);
-  } else {
-    parts.push('<strong>DNS не задан</strong> — риск DNS leak.');
-  }
-
-  // MTU
+  net.push(dns ? `DNS ${pill(dns)}` : '<strong>DNS не задан</strong>');
   const mtu = getInt(iface, 'mtu', null);
-  if (mtu) {
-    parts.push(`MTU: <span class="pill">${mtu}</span>.`);
-  }
+  if (mtu) net.push(`MTU ${pill(mtu)}`);
+  parts.push(net.join(' · ') + '.');
 
   return parts.map(p => `<div class="summary-line">${p}</div>`).join('');
 }
@@ -1029,7 +991,7 @@ function runChecks(iface, peer, version) {
     // Совместимость клиента
     push(CAT3, 'Требования к клиенту', 'info', verLabel,
       awg3p.has31
-        ? 'Конфиг содержит ключи 3.1 — нужны amneziawg-tools и модуль v3.1.20260812 или новее И на сервере, и на клиенте. Клиент постарше не прочитает конфиг вовсе: неизвестный ключ отвергается целиком.'
+        ? 'Ключи 3.1: tools и модуль v3.1.20260812+ на обеих сторонах, старый клиент конфиг не прочитает. Клиенты: AmneziaVPN 5.0.1.5+, Keenetic с прошивки 5.2.11 (alpha), AWG Manager.'
         : 'Конфиг содержит ключи 3.0 — нужны amneziawg-tools v3.0.20260730+ и модуль v3.0.20260805+ на обеих сторонах. Основной AmneziaVPN до 5.0.1.5 такой конфиг импортирует без HeaderProtectionKey, и подключение молча зависает.',
       0, 0);
   }
@@ -1050,7 +1012,7 @@ function runChecks(iface, peer, version) {
     const jmaxOk = Jmax !== null && Jmax >= Jmin && Jmax <= 1280;
     // Узкий диапазон — норма для DNS-мимикрии (Lite и AmneziaVPN)
     const pname = version && version.toolzaProfile && version.toolzaProfile.name;
-    const narrowOk = pname === 'Lite' || pname === 'AmneziaVPN';
+    const narrowOk = (pname || '').startsWith('Lite') || pname === 'AmneziaVPN';
     const rangeWide = jminOk && jmaxOk && (Jmax - Jmin) >= 50;
     const jrangeOk = jminOk && jmaxOk && (rangeWide || narrowOk);
 
@@ -1631,7 +1593,7 @@ function buildFixes(checks, iface, peer, version) {
     // Узкий диапазон — норма для DNS-мимикрии (Lite и AmneziaVPN):
     // DNS-пакеты маленькие и предсказуемого размера
     const pname = version && version.toolzaProfile && version.toolzaProfile.name;
-    const narrowOk = pname === 'Lite' || pname === 'AmneziaVPN';
+    const narrowOk = (pname || '').startsWith('Lite') || pname === 'AmneziaVPN';
     if (!narrowOk) {
       add('med', `Jmin-Jmax диапазон слишком узкий (${Jmin}-${Jmax}). Расширь до ≥50 байт разницы.`);
     }
@@ -1787,7 +1749,7 @@ function dpiLabel(d) {
 }
 
 function profileColor(name) {
-  if (name === 'Lite') return '#fbbf24';        // amber
+  if ((name || '').startsWith('Lite')) return '#fbbf24';   // amber
   if (name === 'Standard') return '#60a5fa';    // blue
   if (name === 'Pro') return '#34d399';         // emerald
   if (name === 'AmneziaVPN') return '#f472b6';  // pink (бренд Amnezia)
@@ -2271,15 +2233,16 @@ function obfScores(checks, obf, iface, hasWg) {
 
 function buildObfSummary(obf, iface, peer, version, hasWg) {
   const p = obf.params, parts = [];
-  parts.push(`Обфускатор: <strong>${esc(obf.flavor === 'Phobos' ? 'Phobos' : 'wg-obfuscator ClusterM')}</strong>` +
-    (obf.fromInstance ? ' <span class="pill">формат Phobos: .conf + [instance]</span>' : ` <span class="pill">секция [${esc(obf.name)}]</span>`) + '.');
-  parts.push(obf.side === 'сервер'
-    ? `Серверная сторона: принимает на <strong>${esc(p['source-lport'] || '?')}/udp</strong> и отдаёт в локальный WireGuard <code>${esc(obf.target)}</code>.`
-    : `Клиентская сторона: ${obf.fromInstance ? 'клиент Phobos / AWG Manager поднимает релей сам' : `слушает <code>${esc((p['source-if'] || '0.0.0.0') + ':' + (p['source-lport'] || '?'))}</code>`} и шлёт на сервер <code>${esc(obf.target || '?')}</code>.`);
-  parts.push(`Режим: <span class="pill">${esc(version.obfLevel)}</span>.`);
-  if (!hasWg) parts.push('Конфига WireGuard в тексте нет — разобран только обфускатор. Вставь вместе с ним wg.conf, чтобы проверить связку (Endpoint, AllowedIPs, MTU).');
-  else if (version.marks.length) parts.push(`<strong>Под обфускатором AmneziaWG</strong> (${esc(version.marks.join(', '))}) — обфускатор понимает только обычный WireGuard, связка не поднимется.`);
-  parts.push('Совместимость: клиент Phobos работает с сервером ClusterM и наоборот, пока выключены расширения Phobos <code>obfuscate-bytes</code> и <code>MEDIA</code> (проверено вживую).');
+  const pill = t => `<span class="pill">${esc(t)}</span>`;
+  const side = obf.side === 'сервер' ? 'сервер' : obf.side === 'клиент' ? 'клиент' : 'сторона?';
+  parts.push(`<strong>${obf.flavor === 'Phobos' ? 'Phobos' : 'ClusterM'}</strong> · ${side} · ${pill(version.obfLevel)}` +
+    (obf.fromInstance ? ` · ${pill('[instance]')}` : ''));
+  if (obf.side === 'сервер') parts.push(`${pill(':' + (p['source-lport'] || '?'))} → WireGuard ${pill(obf.target)}`);
+  else parts.push(obf.fromInstance ? `→ ${pill(obf.target || '?')}`
+    : `${pill((p['source-if'] || '0.0.0.0') + ':' + (p['source-lport'] || '?'))} → ${pill(obf.target || '?')}`);
+  if (!hasWg) parts.push('Только обфускатор — вставь с ним wg.conf, проверю связку.');
+  else if (version.marks.length) parts.push(`⚠️ Под обфускатором AWG (${esc(version.marks.join(', '))}) — не заработает, нужен обычный WireGuard.`);
+  parts.push('📌 Phobos и ClusterM совместимы без obfuscate-bytes и MEDIA.');
   return parts.map(x => `<div class="summary-line">${x}</div>`).join('');
 }
 
