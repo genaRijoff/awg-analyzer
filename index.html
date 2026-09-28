@@ -825,9 +825,9 @@ function buildSummary(iface, peer, version) {
       parts.push(`Включены параметры 3.1: <span class="pill">${on31.join('</span> <span class="pill">')}</span>.`);
     }
     if (a3.is31) {
-      parts.push('⚠️ Конфиг требует <strong>amneziawg-tools и модуль v3.1.20260812 или новее</strong> И на сервере, и на клиенте: более старый клиент такой конфиг даже не прочитает — неизвестный ключ отвергается целиком. В приложении AmneziaVPN поддержка 3.1 с версии <strong>5.0.1.5</strong>, прошивки роутеров её пока не умеют.');
+      parts.push('📌 Конфиг требует <strong>amneziawg-tools и модуль v3.1.20260812 или новее</strong> И на сервере, и на клиенте: более старый клиент такой конфиг даже не прочитает — неизвестный ключ отвергается целиком. В приложении AmneziaVPN поддержка 3.1 с версии <strong>5.0.1.5</strong>, прошивки роутеров её пока не умеют.');
     } else {
-      parts.push('⚠️ Нужны amneziawg-tools v3.0.20260730+ и модуль v3.0.20260805+ на обеих сторонах. Приложение AmneziaVPN до 5.0.0.5 переносит Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5, но выбрасывает HeaderProtectionKey при импорте — без него подключение молча зависает.');
+      parts.push('📌 Нужны amneziawg-tools v3.0.20260730+ и модуль v3.0.20260805+ на обеих сторонах. Приложение AmneziaVPN до 5.0.0.5 переносит Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5, но выбрасывает HeaderProtectionKey при импорте — без него подключение молча зависает.');
     }
     if (a3.sTooSmall) {
       parts.push('⚠️ S1-S4 меньше 12 — см. рекомендации ниже, защита заголовков не поднимется.');
@@ -887,8 +887,9 @@ function buildSummary(iface, peer, version) {
 // ═══════════════════════════════════════════════════════════
 function runChecks(iface, peer, version) {
   const R = [];
-  const push = (cat, title, status, value, detail, pts, max) =>
-    R.push({ cat, title, status, value: String(value), detail, pts, max });
+  // note — текст для блока «📌 Напоминания»: правило «как должно быть», не поломка.
+  const push = (cat, title, status, value, detail, pts, max, note) =>
+    R.push({ cat, title, status, value: String(value), detail, pts, max, note });
 
   const Jc = getInt(iface, 'jc', null);
   const Jmin = getInt(iface, 'jmin', null);
@@ -917,10 +918,11 @@ function runChecks(iface, peer, version) {
 
   const psk = getStr(peer, 'presharedkey');
   const pskOk = psk && isBase64(psk);
-  push('Ключи', 'PresharedKey', pskOk ? 'pass' : 'warn', pskOk ? psk.slice(0, 12) + '…' : '(отсутствует)',
+  push('Ключи', 'PresharedKey', pskOk ? 'pass' : 'info', pskOk ? psk.slice(0, 12) + '…' : '(отсутствует)',
     pskOk ? 'PresharedKey задан — дополнительный слой симметричного шифрования (post-quantum устойчивость)' :
-      'PresharedKey отсутствует — дополнительная защита от будущих квантовых атак не активна',
-    pskOk ? 6 : 2, 6);
+      'PresharedKey не задан — туннель работает, но без дополнительного слоя симметричного шифрования (защита от будущих квантовых атак)',
+    pskOk ? 6 : 2, 6,
+    pskOk ? null : '<strong>PresharedKey</strong> — желательно задавать: дополнительный слой симметричного шифрования поверх Noise (post-quantum). Один и тот же ключ у сервера и клиента.');
 
   // ── AWG 3.x: параметры уровня устройства ──────────────────
   const awg3p = parseAwg3(iface);
@@ -1368,13 +1370,14 @@ function runChecks(iface, peer, version) {
   const dnsOk = !!dns;
   const dnsPrivate = /10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\./.test(dns);
   const dnsPublicGood = ['1.1.1.1', '8.8.8.8', '9.9.9.9', '208.67.222.222', '94.140.14.14', '77.88.8.8'].some(d => dns.includes(d));
-  push('Маршрутизация', 'DNS', dnsOk ? (dnsPrivate || dnsPublicGood ? 'pass' : 'warn') : 'fail',
+  push('Маршрутизация', 'DNS', dnsOk ? (dnsPrivate || dnsPublicGood ? 'pass' : 'info') : 'fail',
     dns || '(не задан)',
     !dnsOk ? 'DNS не задан — запросы идут мимо VPN, полный DNS leak' :
     dnsPrivate ? `Приватный DNS (${dns}) — запросы через туннель, нет утечки` :
     dnsPublicGood ? `${dns} — публичный DNS, работает через туннель` :
     `${dns} — нестандартный DNS, проверь что запросы идут через туннель`,
-    dnsOk ? (dnsPrivate ? 6 : dnsPublicGood ? 4 : 3) : 0, 6);
+    dnsOk ? (dnsPrivate ? 6 : dnsPublicGood ? 4 : 3) : 0, 6,
+    dnsOk && !dnsPrivate && !dnsPublicGood ? `<strong>DNS = ${esc(dns)}</strong> — адрес должен быть доступен через туннель (попадать в AllowedIPs), иначе запросы пойдут мимо VPN.` : null);
 
   // ── MTU ─────────────────────────────────────────────────
   const mtu = getInt(iface, 'mtu', null);
@@ -1412,8 +1415,9 @@ function runChecks(iface, peer, version) {
         headroomOk ? 4 : 1, 4);
     }
   } else {
-    push('Сеть', 'MTU', 'warn', '(не задан)',
-      'MTU не задан — будет использован дефолт 1420, но для AWG 2.0 лучше указать 1320', 1, 4);
+    push('Сеть', 'MTU', 'info', '(не задан)',
+      'MTU не задан — клиент возьмёт 1420', 1, 4,
+      '<strong>MTU</strong> лучше задавать явно: без него клиент берёт 1420, а для AWG 2.0 + CPS оптимум <code class="fix-code">MTU = 1320</code>.');
   }
 
   // Keepalive — AWG 3.0 допускает диапазон "22-30" (клиент выбирает случайное
@@ -1638,9 +1642,7 @@ function buildFixes(checks, iface, peer, version) {
     add('high', 'Это чистый WireGuard без обфускации. Используй AmneziaWG — добавит Jc/S/H/I параметры.');
   }
 
-  if (version.ver === 'AWG 1.0' || version.ver === 'AWG 1.5') {
-    add('low', 'Обнови до AWG 2.0: добавь S3/S4 и переделай H1-H4 в диапазоны.');
-  }
+  // AWG 1.x → 2.0 — это «Как усилить защиту» (шаг там есть), не срочная поломка
 
   const pubEndpoint = getStr(peer, 'endpoint');
   if (pubEndpoint) {
@@ -1651,13 +1653,8 @@ function buildFixes(checks, iface, peer, version) {
     }
   }
 
-  if (mtu === null) {
-    add('low', 'Задай <code class="fix-code">MTU = 1320</code> — оптимум для AWG 2.0 + CPS.');
-  }
+  // MTU не задан и нет PresharedKey — это «📌 Напоминания» (note из проверок), не «срочно»
 
-  if (!getStr(peer, 'presharedkey')) {
-    add('low', 'Добавь PresharedKey — дополнительный слой симметричного шифрования (post-quantum устойчивость).');
-  }
 
   return fixes;
 }
@@ -2024,8 +2021,8 @@ function awgMarks(iface) {
 function runObfChecks(obf, iface, peer, hasWg) {
   const R = [];
   const cat = 'Обфускатор (' + obf.flavor + ')';
-  const push = (title, status, value, detail, pts, max) =>
-    R.push({ cat, title, status, value: String(value), detail, pts, max });
+  const push = (title, status, value, detail, pts, max, note) =>
+    R.push({ cat, title, status, value: String(value), detail, pts, max, note });
   const p = obf.params;
   const masking = (p.masking || 'AUTO').toUpperCase();
   const client = obf.side !== 'сервер';
@@ -2060,10 +2057,11 @@ function runObfChecks(obf, iface, peer, hasWg) {
   push('masking', mStatus, masking, esc(mDesc), mStatus === 'pass' ? 12 : masking === 'TLS' ? 0 : 5, 12);
 
   if (masking === 'MEDIA' || +p['obfuscate-bytes'] > 0) {
-    push('Совместимость с сервером', 'warn',
+    push('Совместимость с сервером', 'info',
       masking === 'MEDIA' ? 'MEDIA' : 'obfuscate-bytes = ' + p['obfuscate-bytes'],
-      'Расширение форка Phobos: с оригинальным wg-obfuscator ClusterM (и серверами awg2-toolza, AWG Manager «ClusterM») связи не будет — проверено: соединение не поднимается. Годится, только если и сервер на Phobos.',
-      2, 5);
+      'Расширение форка Phobos: работает только с сервером Phobos. С оригинальным wg-obfuscator ClusterM (серверы awg2-toolza, AWG Manager «ClusterM») соединение не поднимается — проверено.',
+      2, 5,
+      `<strong>${masking === 'MEDIA' ? 'masking = MEDIA' : 'obfuscate-bytes'}</strong> — только для сервера Phobos. Если сервер на оригинальном wg-obfuscator (awg2-toolza, AWG Manager «ClusterM»), это должно быть выключено: <code class="fix-code">obfuscate-bytes = 0</code>, <code class="fix-code">masking = STUN</code>.`);
   }
   if (+p['obfuscate-bytes'] > 0) {
     push('obfuscate-bytes', 'warn', p['obfuscate-bytes'],
@@ -2117,8 +2115,8 @@ function runObfChecks(obf, iface, peer, hasWg) {
     push('verbose', 'warn', p.verbose, 'TRACE пишет в журнал дампы пакетов — и нагрузка, и утечка. Для работы достаточно INFO/WARNINGS.', 1, 2);
   }
   if (obf.unknown.length) {
-    push('Неизвестные ключи', 'warn', obf.unknown.join(', '),
-      'Не из wg-obfuscator ClusterM v1.6 и не из Phobos — опечатка? Неизвестный ключ обфускатор отвергает при старте.', 0, 0);
+    push('Неизвестные ключи', 'fail', obf.unknown.join(', '),
+      'Не из wg-obfuscator ClusterM v1.6 и не из Phobos — опечатка? На неизвестном ключе обфускатор завершается при запуске («Unknown configuration key»).', 0, 2);
   }
   if (obf.extraInstances.length) {
     push('Экземпляры', 'info', [obf.name, ...obf.extraInstances].join(', '),
@@ -2190,8 +2188,8 @@ function runObfChecks(obf, iface, peer, hasWg) {
 // Дополнительные проверки WireGuard, общие для любого конфига.
 function runWgExtraChecks(iface, peer, peers, source, extra, obfPresent) {
   const R = [];
-  const push = (title, status, value, detail, pts, max) =>
-    R.push({ cat: 'WireGuard', title, status, value: String(value), detail, pts, max });
+  const push = (title, status, value, detail, pts, max, note) =>
+    R.push({ cat: 'WireGuard', title, status, value: String(value), detail, pts, max, note });
   const epL = getStr(peer, 'endpoint');
   if (!obfPresent && /^(127\.|localhost:|\[::1\])/i.test(epL)) {
     push('Endpoint на localhost', 'info', epL,
@@ -2199,8 +2197,9 @@ function runWgExtraChecks(iface, peer, peers, source, extra, obfPresent) {
   }
   const hooks = ['preup', 'postup', 'predown', 'postdown'].filter(k => iface[k]);
   if (hooks.length) {
-    push('PreUp / PostUp', 'warn', hooks.map(h => ({ preup: 'PreUp', postup: 'PostUp', predown: 'PreDown', postdown: 'PostDown' })[h]).join(', '),
-      'В конфиге есть команды оболочки — wg-quick выполнит их <strong>от root</strong> при подключении. В клиентском конфиге из чужих рук это прямой запуск кода: проверь, что там.', 0, 0);
+    push('PreUp / PostUp', 'info', hooks.map(h => ({ preup: 'PreUp', postup: 'PostUp', predown: 'PreDown', postdown: 'PostDown' })[h]).join(', '),
+      'В конфиге есть команды оболочки — wg-quick выполнит их <strong>от root</strong> при подключении.', 0, 0,
+      '<strong>PreUp / PostUp</strong> — wg-quick выполняет эти команды от root при подключении. Конфиг из чужих рук перед импортом стоит просмотреть: что именно там запускается.');
   }
   if (iface.saveconfig && /^true$/i.test(iface.saveconfig)) {
     push('SaveConfig', 'info', 'true', 'wg-quick перезапишет файл при остановке — ручные правки, сделанные на ходу, пропадут.', 0, 0);
@@ -2287,7 +2286,7 @@ function buildObfSummary(obf, iface, peer, version, hasWg) {
 function buildObfFixes(checks) {
   const fixes = [];
   checks.forEach(c => {
-    if (c.status !== 'fail' && c.status !== 'warn') return;
+    if (c.status !== 'fail' && c.status !== 'warn') return;   // info с note — в «Напоминания»
     const sev = c.status === 'fail' ? 'crit' : c.max >= 10 ? 'high' : c.max >= 5 ? 'med' : 'low';
     fixes.push({ severity: sev, text: `<strong>${esc(c.title)}</strong>: ${c.detail}` });
   });
@@ -2450,6 +2449,7 @@ async function analyze() {
     profileTile;
 
   // Напоминания отдельно: это не поломки, в «срочно исправить» им не место
+  checks.forEach(c => { if (c.note) fixes.push({ severity: 'note', text: c.note }); });
   const notes = fixes.filter(f => f.severity === 'note');
   fixes = fixes.filter(f => f.severity !== 'note');
   const notesEl = document.getElementById('notesBox');
