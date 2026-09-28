@@ -19,6 +19,18 @@
 
 ---
 
+Что нового в v3.2 — WireGuard за обфускатором и ссылки
+
+- ✅ **Phobos**: `.conf` с секцией `[instance]` и ссылки **`phobos://`** (раскрываются прямо в браузере)
+- ✅ **wg-obfuscator ClusterM**: конфиги `[main]` / именованные экземпляры, клиентская и серверная сторона, в том числе вывод комплекта awg2-toolza (`obfuscator.conf` + `wg.conf` одним текстом)
+- ✅ **Ключи AmneziaVPN `vpn://`** — qCompress + JSON (как `importController.cpp`), разбирается конфиг AWG/WireGuard из контейнера
+- ✅ **Ссылки `wireguard://`** (v2rayN / Hiddify / sing-box / NekoBox), детект **Cloudflare WARP** и байтов `reserved`
+- ✅ Проверки обфускатора: ключ (длина, словарные), `masking` (STUN / MEDIA / NONE / AUTO — AUTO на клиенте = без маскировки), `max-dummy`, `target` (IPv6 не поддерживается, домен без `resolve-interval`), `source-if`, `allow-clean` на клиенте, `static-bindings` + `allow-clean`, `verbose = TRACE`, неизвестные ключи, SOCKS5-режим Phobos
+- ✅ Совместимость Phobos ↔ ClusterM: работает, пока у клиента выключены `obfuscate-bytes` и `MEDIA` — проверено вживую
+- ✅ Связка с WireGuard: **AWG под обфускатором не работает** (обфускатор узнаёт пакеты по стандартному типу WireGuard, а у AWG заголовки подменены/зашифрованы) — CRIT; Endpoint ↔ `source-lport`; **петля маршрутизации** при `0.0.0.0/0` без исключения IP сервера или FwMark (считается покрытие AllowedIPs); MTU с учётом STUN-обёртки (+24 байта)
+- ✅ Общие проверки WireGuard: `PreUp/PostUp` (команды от root при подключении), `SaveConfig`, `Table = off`, `ListenPort` у клиента, несколько `[Peer]`, Endpoint на localhost без конфига релея
+- 🔧 Критическая ошибка в связке ограничивает оценку и даёт вердикт «Связка не работает» — средняя оценка по остальным пунктам больше не маскирует поломку
+
 Что нового в v3.1
 
 - ✅ **Поддержка AWG 3.1** — детект по `RandomTrailers` / `DisableCookies`, отдельный бейдж и цвет
@@ -70,6 +82,8 @@
   - AWG 2.0 (+ детект уровня обфускации)
   - AWG 3.0 (full CPS chain + HeaderProtection)
   - AWG 3.1 (+ RandomTrailers / DisableCookies)
+  - WireGuard + wg-obfuscator (Phobos / ClusterM)
+  - ключи `vpn://`, ссылки `phobos://` и `wireguard://`
   - 🧠 Анализ параметров
   
   - Junk packets ("Jc", "Jmin", "Jmax")
