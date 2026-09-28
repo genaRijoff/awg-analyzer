@@ -77,6 +77,12 @@ textarea::placeholder{color:#1e3a5f;}
 .fix-severity.high{background:#451a03;color:#fcd34d;}
 .fix-severity.med{background:#1e1b4b;color:#a5b4fc;}
 .fix-severity.low{background:#111827;color:#64748b;}
+.notes{background:#0b1220;border:1px solid #1e3a5f;border-radius:10px;padding:14px 16px;margin-bottom:16px;display:none;}
+.notes-title{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:#7dd3fc;margin-bottom:10px;font-weight:700;}
+.note-item{color:#94a3b8;font-size:.85rem;line-height:1.55;padding:4px 0;}
+.note-item + .note-item{border-top:1px solid #1e293b;}
+body.light .notes{background:#f0f7ff;border-color:#bfdbfe;}
+body.light .note-item{color:#334155;}
 
 /* Upgrade path — как усилить */
 .upgrade{display:none;background:#0a0f1e;border:1px solid #1e3a5f;border-radius:10px;padding:14px 16px;margin-bottom:16px;}
@@ -227,6 +233,12 @@ PersistentKeepalive = 21-29"></textarea>
   <div class="autofix" id="autofixBox">
     <div class="autofix-title">🔧 Что срочно исправить</div>
     <div id="autofixList"></div>
+  </div>
+
+  <!-- Напоминания — не ошибки, а правила, о которых легко забыть -->
+  <div class="notes" id="notesBox">
+    <div class="notes-title">📌 Напоминания</div>
+    <div id="notesList"></div>
   </div>
 
   <!-- Upgrade path — как усилить -->
@@ -1540,7 +1552,8 @@ function buildFixes(checks, iface, peer, version) {
   // RandomTrailers обязан совпадать на обеих сторонах
   const rtF = awg3f.flags['randomtrailers'];
   if (rtF && rtF.valid && rtF.on) {
-    add('low', 'RandomTrailers включён — параметр уровня устройства: то же значение обязано стоять на сервере, иначе сторона без него отбросит удлинённые пакеты рукопожатия и подключение просто не установится.');
+    // Не ошибка, а правило, о котором легко забыть: в «Напоминания», а не в «срочно».
+    add('note', '<strong>RandomTrailers = on</strong> — параметр уровня устройства: на сервере должен стоять тот же. Сторона без него отбрасывает удлинённые пакеты рукопожатия, и подключение не устанавливается.');
   }
 
   // H1-H4 default — сигнатура только при ОТКРЫТОМ заголовке.
@@ -2337,6 +2350,7 @@ async function analyze() {
 
   // Reset
   errEl.style.display = 'none';
+  document.getElementById('notesBox').style.display = 'none';
   scoreEl.style.display = 'none';
   parsedEl.style.display = 'none';
   checksEl.innerHTML = '';
@@ -2435,6 +2449,13 @@ async function analyze() {
     renderMini('Camouflage', camouflage, '#60a5fa') +
     profileTile;
 
+  // Напоминания отдельно: это не поломки, в «срочно исправить» им не место
+  const notes = fixes.filter(f => f.severity === 'note');
+  fixes = fixes.filter(f => f.severity !== 'note');
+  const notesEl = document.getElementById('notesBox');
+  notesEl.style.display = notes.length ? 'block' : 'none';
+  document.getElementById('notesList').innerHTML = notes.map(n => `<div class="note-item">${n.text}</div>`).join('');
+
   // Fixes — сортируем по severity
   if (fixes.length) {
     autofixEl.style.display = 'block';
@@ -2520,7 +2541,7 @@ function loadFile(e) {
 }
 function clearAll() {
   document.getElementById('configInput').value = '';
-  ['errorMsg', 'scoreSection', 'parsedParams', 'autofixBox', 'versionBanner', 'summaryBox', 'upgradeBox'].forEach(id => {
+  ['errorMsg', 'scoreSection', 'parsedParams', 'autofixBox', 'notesBox', 'versionBanner', 'summaryBox', 'upgradeBox'].forEach(id => {
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById('checksOutput').innerHTML = '';
